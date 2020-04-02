@@ -14,9 +14,10 @@ import "./Registrar.sol";
 import "./Ownable.sol";
 import "./ERC20Interface.sol";
 
+
 contract Shield is Ownable, MerkleTree, ERC165Compatible, Registrar, IShield {
     // ENUMS:
-    enum TransactionTypes { CreateMSA, CreatePO }
+    enum TransactionTypes {CreateMSA, CreatePO}
 
     // EVENTS:
     // Observers may wish to listen for nullification of commitments:
@@ -42,7 +43,7 @@ contract Shield is Ownable, MerkleTree, ERC165Compatible, Registrar, IShield {
     bytes32 public latestRoot; // holds the index for the latest root so that the prover can provide it later and this contract can look up the relevant root
 
     // VERIFICATION KEY STORAGE:
-    mapping(uint => uint256[]) public vks; // mapped to by an enum uint(TransactionTypes):
+    mapping(uint256 => uint256[]) public vks; // mapped to by an enum uint(TransactionTypes):
 
     // FUNCTIONS:
     constructor(address _verifier, address _erc1820) public Ownable() ERC165Compatible() Registrar(_erc1820) {
@@ -54,29 +55,27 @@ contract Shield is Ownable, MerkleTree, ERC165Compatible, Registrar, IShield {
 
     function setInterfaces() public onlyOwner returns (bool) {
         supportedInterfaces[this.changeVerifier.selector ^
-                            this.getVerifier.selector ^
-                            this.createMSA.selector ^
-                            this.createPO.selector] = true;
+            this.getVerifier.selector ^
+            this.createMSA.selector ^
+            this.createPO.selector] = true;
         return true;
     }
 
     function getInterfaces() external pure returns (bytes4) {
-        return this.changeVerifier.selector ^
-                this.getVerifier.selector ^
-                this.createMSA.selector ^
-                this.createPO.selector;
+        return
+            this.changeVerifier.selector ^ this.getVerifier.selector ^ this.createMSA.selector ^ this.createPO.selector;
     }
 
     function supportsInterface(bytes4 interfaceId) external view returns (bool) {
         return supportedInterfaces[interfaceId];
     }
 
-    function canImplementInterfaceForAddress(bytes32 interfaceHash, address addr) external view returns(bytes32) {
+    function canImplementInterfaceForAddress(bytes32 interfaceHash, address addr) external view returns (bytes32) {
         return ERC1820_ACCEPT_MAGIC;
     }
 
-    function assignManager(address _oldManager, address _newManager) external {
-        assignManagement(_oldManager, _newManager);
+    function assignManager(address _newManager) external {
+        assignManagement(_newManager);
     }
 
     /**
@@ -106,12 +105,13 @@ contract Shield is Ownable, MerkleTree, ERC165Compatible, Registrar, IShield {
     /**
     Stores verification keys (for the 'mint', 'transfer' and 'burn' computations).
     */
-    function registerVerificationKey(
-        uint256[] calldata _vk,
-        TransactionTypes _txType
-    ) external onlyOwner returns (bytes32) {
+    function registerVerificationKey(uint256[] calldata _vk, TransactionTypes _txType)
+        external
+        onlyOwner
+        returns (bytes32)
+    {
         // CAUTION: we do not prevent overwrites of vk's. Users must listen for the emitted event to detect updates to a vk.
-        vks[uint(_txType)] = _vk;
+        vks[uint256(_txType)] = _vk;
 
         emit VkChanged(_txType);
     }
@@ -119,12 +119,10 @@ contract Shield is Ownable, MerkleTree, ERC165Compatible, Registrar, IShield {
     /**
     createMSA
     */
-    function createMSA(
-        uint256[] calldata _proof,
-        uint256[] calldata _inputs,
-        bytes32 _newMSACommitment
-    ) external returns (bool) {
-
+    function createMSA(uint256[] calldata _proof, uint256[] calldata _inputs, bytes32 _newMSACommitment)
+        external
+        returns (bool)
+    {
         // gas measurement:
         uint256 gasCheckpoint = gasleft();
 
@@ -138,7 +136,7 @@ contract Shield is Ownable, MerkleTree, ERC165Compatible, Registrar, IShield {
         gasCheckpoint = gasleft();
 
         // verify the proof
-        bool result = verifier.verify(_proof, _inputs, vks[uint(TransactionTypes.CreateMSA)]);
+        bool result = verifier.verify(_proof, _inputs, vks[uint256(TransactionTypes.CreateMSA)]);
         require(result, "The proof has not been verified by the contract");
 
         // gas measurement:
@@ -172,15 +170,16 @@ contract Shield is Ownable, MerkleTree, ERC165Compatible, Registrar, IShield {
         bytes32 _nullifierOfOldMSACommitment,
         bytes32 _newMSACommitment,
         bytes32 _newPOCommitment
-    ) external returns(bool) {
-
+    ) external returns (bool) {
         // gas measurement:
         uint256[3] memory gasUsed; // array needed to stay below local stack limit
         gasUsed[0] = gasleft();
 
         // Check that the publicInputHash equals the hash of the 'public inputs':
         bytes31 publicInputHash = bytes31(bytes32(_inputs[0]) << 8);
-        bytes31 publicInputHashCheck = bytes31(sha256(abi.encodePacked(_root, _nullifierOfOldMSACommitment, _newMSACommitment, _newPOCommitment)) << 8);
+        bytes31 publicInputHashCheck = bytes31(
+            sha256(abi.encodePacked(_root, _nullifierOfOldMSACommitment, _newMSACommitment, _newPOCommitment)) << 8
+        );
         require(publicInputHashCheck == publicInputHash, "publicInputHash cannot be reconciled");
 
         // gas measurement:
@@ -188,7 +187,7 @@ contract Shield is Ownable, MerkleTree, ERC165Compatible, Registrar, IShield {
         gasUsed[0] = gasleft();
 
         // verify the proof
-        bool result = verifier.verify(_proof, _inputs, vks[uint(TransactionTypes.CreatePO)]);
+        bool result = verifier.verify(_proof, _inputs, vks[uint256(TransactionTypes.CreatePO)]);
         require(result, "The proof has not been verified by the contract");
 
         // gas measurement:
@@ -197,9 +196,15 @@ contract Shield is Ownable, MerkleTree, ERC165Compatible, Registrar, IShield {
 
         // check inputs vs on-chain states
         require(roots[_root] == _root, "The input root has never been the root of the Merkle Tree");
-        require(_newMSACommitment != _newPOCommitment, "The new commitments (_newMSACommitment and _newPOCommitment) must be different!"); // Is this check necessary?
+        require(
+            _newMSACommitment != _newPOCommitment,
+            "The new commitments (_newMSACommitment and _newPOCommitment) must be different!"
+        ); // Is this check necessary?
         require(commitments[_newMSACommitment] == 0, "The MSA commitment already exists!");
-        require(nullifiers[_nullifierOfOldMSACommitment] == 0, "The MSA commitment (which is being updated) has already been nullified!");
+        require(
+            nullifiers[_nullifierOfOldMSACommitment] == 0,
+            "The MSA commitment (which is being updated) has already been nullified!"
+        );
         require(commitments[_newPOCommitment] == 0, "The PO commitment already exists!");
 
         // update contract states

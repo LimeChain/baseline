@@ -1,6 +1,13 @@
-import { getWallet, getAccounts, getSigner } from '../src/wallet';
+import {
+  getWallet,
+  getAccounts,
+  getSigner
+} from '../src/wallet';
 // import Doppelganger from 'ethereum-doppelganger';
-import { ethers, utils } from 'ethers';
+import {
+  ethers,
+  utils
+} from 'ethers';
 
 
 import OrgRegistryArtifact from '../artifacts/OrgRegistry.json';
@@ -102,7 +109,7 @@ test('Should be able to get registrar info', async () => {
 });
 
 test('Should be able to assign new manager', async () => {
-  await orgRegistry.assignManager(orgRegistry.address, accounts[0]);
+  await orgRegistry.assignManager(accounts[0]);
   const newManager = await erc1820Registry.getManager(orgRegistry.address);
   expect(newManager).toBe(accounts[0]);
 });

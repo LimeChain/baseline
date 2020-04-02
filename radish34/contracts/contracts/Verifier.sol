@@ -32,8 +32,8 @@ import "./Registrar.sol";
 import "./IVerifier.sol";
 import "./Ownable.sol";
 
-contract Verifier is Ownable, ERC165Compatible, Registrar, IVerifier {
 
+contract Verifier is Ownable, ERC165Compatible, Registrar, IVerifier {
     using Pairing for *;
 
     struct Proof_GM17 {
@@ -67,19 +67,18 @@ contract Verifier is Ownable, ERC165Compatible, Registrar, IVerifier {
         return this.verify.selector;
     }
 
-    function canImplementInterfaceForAddress(bytes32 interfaceHash, address addr) external view returns(bytes32) {
+    function canImplementInterfaceForAddress(bytes32 interfaceHash, address addr) external view returns (bytes32) {
         return ERC1820_ACCEPT_MAGIC;
     }
 
-    function assignManager(address _oldManager, address _newManager) external {
-        assignManagement(_oldManager, _newManager);
+    function assignManager(address _newManager) external {
+        assignManagement(_newManager);
     }
 
-    function verify(
-        uint256[] memory _proof,
-        uint256[] memory _inputs,
-        uint256[] memory _vk
-    ) public returns (bool result) {
+    function verify(uint256[] memory _proof, uint256[] memory _inputs, uint256[] memory _vk)
+        public
+        returns (bool result)
+    {
         if (verificationCalculation(_proof, _inputs, _vk) == 0) {
             result = true;
         } else {
@@ -87,12 +86,10 @@ contract Verifier is Ownable, ERC165Compatible, Registrar, IVerifier {
         }
     }
 
-    function verificationCalculation(
-        uint256[] memory _proof,
-        uint256[] memory _inputs,
-        uint256[] memory _vk
-    ) public returns (uint) {
-
+    function verificationCalculation(uint256[] memory _proof, uint256[] memory _inputs, uint256[] memory _vk)
+        public
+        returns (uint256)
+    {
         Proof_GM17 memory proof;
         Pairing.G1Point memory vk_dot_inputs;
 
@@ -108,15 +105,15 @@ contract Verifier is Ownable, ERC165Compatible, Registrar, IVerifier {
         vk.Ggamma = Pairing.G1Point(_vk[10], _vk[11]);
         vk.Hgamma = Pairing.G2Point([_vk[12], _vk[13]], [_vk[14], _vk[15]]);
 
-        vk.query.length = (_vk.length - 16)/2;
-        uint j = 0;
-        for (uint i = 16; i < _vk.length; i += 2) {
-            vk.query[j++] = Pairing.G1Point(_vk[i], _vk[i+1]);
+        vk.query.length = (_vk.length - 16) / 2;
+        uint256 j = 0;
+        for (uint256 i = 16; i < _vk.length; i += 2) {
+            vk.query[j++] = Pairing.G1Point(_vk[i], _vk[i + 1]);
         }
 
         require(_inputs.length + 1 == vk.query.length, "Length of inputs[] or vk.query is incorrect!");
 
-        for (uint i = 0; i < _inputs.length; i++)
+        for (uint256 i = 0; i < _inputs.length; i++)
             vk_dot_inputs = Pairing.addition(vk_dot_inputs, Pairing.scalar_mul(vk.query[i + 1], _inputs[i]));
 
         vk_dot_inputs = Pairing.addition(vk_dot_inputs, vk.query[0]);
@@ -126,7 +123,18 @@ contract Verifier is Ownable, ERC165Compatible, Registrar, IVerifier {
          *                              * e(C, H)
          * where psi = \sum_{i=0}^l input_i pvk.query[i]
          */
-        if (!Pairing.pairingProd4(vk.Galpha, vk.Hbeta, vk_dot_inputs, vk.Hgamma, proof.C, vk.H, Pairing.negate(Pairing.addition(proof.A, vk.Galpha)), Pairing.addition2(proof.B, vk.Hbeta))) {
+        if (
+            !Pairing.pairingProd4(
+                vk.Galpha,
+                vk.Hbeta,
+                vk_dot_inputs,
+                vk.Hgamma,
+                proof.C,
+                vk.H,
+                Pairing.negate(Pairing.addition(proof.A, vk.Galpha)),
+                Pairing.addition2(proof.B, vk.Hbeta)
+            )
+        ) {
             return 1;
         }
 
